@@ -17,13 +17,28 @@ Docker container for running Claude Code autonomously. Based on `node:22` (Debia
 
 ## Setup
 
-1. Copy `.env.example` to `.env` and fill in your values:
-   ```
-   ANTHROPIC_AUTH_TOKEN=<your-token>
-   SSH_PRIVATE_KEY_B64=<output of: base64 -i ~/.ssh/id_ed25519>
+1. Copy `.env.example` to `.env`:
+   ```bash
+   cp .env.example .env
    ```
 
-2. Build:
+2. Fill in your values:
+   ```bash
+   # Required — Claude OAuth credentials (base64-encoded)
+   # Claude Code doesn't support OAuth via env vars yet, so we inject the credentials file directly
+   # Generate with: base64 < ~/.claude/.credentials.json
+   CLAUDE_CREDENTIALS_B64=
+
+   # Git identity for commits made inside the container
+   GIT_USER_NAME=Your Name
+   GIT_USER_EMAIL=you@example.com
+
+   # Optional — SSH key for git push/pull over SSH (base64-encoded)
+   # Generate with: base64 -i ~/.ssh/id_ed25519
+   SSH_PRIVATE_KEY_B64=
+   ```
+
+3. Build:
    ```bash
    docker compose build
    ```
@@ -97,5 +112,7 @@ Use both together: devcontainer for interactive work, standalone alias for fire-
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `ANTHROPIC_AUTH_TOKEN` | Yes | Claude API authentication token |
+| `CLAUDE_CREDENTIALS_B64` | Yes | Base64-encoded Claude OAuth credentials (`base64 < ~/.claude/.credentials.json`) |
+| `GIT_USER_NAME` | No | Git committer name |
+| `GIT_USER_EMAIL` | No | Git committer email |
 | `SSH_PRIVATE_KEY_B64` | No | Base64-encoded SSH private key (`base64 -i ~/.ssh/id_ed25519`) |
