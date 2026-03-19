@@ -27,28 +27,28 @@ RUN curl -sS https://starship.rs/install.sh | sh -s -- -y
 
 ## Remove default ubuntu user, create claude user
 RUN userdel -r ubuntu \
-  && useradd -m -s /bin/bash -u 1001 claude
+  && useradd -m -s /bin/bash -u 1001 claude \
+  && mkdir -p /home/claude/.claude /home/claude/.config /home/claude/.ssh /home/claude/project
 
-## Entrypoint (must be root-owned at /)
+## Copy files into image
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-# --- CLAUDE USER OPERATIONS ---
-USER claude
-
-## Create directories
-RUN mkdir -p ~/.claude ~/.config ~/.ssh ~/project
-
-## Copy config files (owned by claude automatically)
 COPY .claude.json /home/claude/.claude.json
 COPY settings.json /home/claude/.claude/settings.json
 COPY plugins/ /home/claude/.claude/plugins/
 COPY known_hosts /home/claude/.ssh/known_hosts
-RUN chmod 700 ~/.ssh && chmod 644 ~/.ssh/known_hosts
+
+## Permissions
+RUN chmod +x /entrypoint.sh \
+  && chmod 700 /home/claude/.ssh \
+  && chmod 644 /home/claude/.ssh/known_hosts \
+  && chown -R claude:claude /home/claude
+
+# --- CLAUDE USER OPERATIONS ---
+USER claude
 
 ## Claude Code (native installer)
-RUN curl -fsSL https://claude.ai/install.sh | bash
 ENV PATH="/home/claude/.local/bin:${PATH}"
+RUN curl -fsSL https://claude.ai/install.sh | bash
 
 ## Rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
