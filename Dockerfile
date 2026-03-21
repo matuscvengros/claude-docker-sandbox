@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Build tools
     build-essential gcc g++ make cmake \
     # Version control & networking
-    git curl wget ca-certificates gnupg openssh-client \
+    git gh curl wget ca-certificates gnupg openssh-client \
     # Python
     python3 python3-pip python3-venv \
     # CLI utilities
@@ -75,7 +75,8 @@ RUN claude plugin install superpowers@claude-plugins-official \
  && claude plugin install learning-output-style@claude-plugins-official \
  && claude plugin install claude-code-setup@claude-plugins-official \
  && claude plugin install feature-dev@claude-plugins-official \
- && claude plugin install security-guidance@claude-plugins-official
+ && claude plugin install security-guidance@claude-plugins-official \
+ && claude plugin install github@claude-plugins-official
 
 HEALTHCHECK --interval=30s --timeout=5s CMD claude --version || exit 1
 
