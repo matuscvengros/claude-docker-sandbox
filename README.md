@@ -46,11 +46,12 @@ GIT_USER_EMAIL=you@example.com
 docker compose build
 ```
 
-The compose file builds the `full` target by default (base + private plugins). If you don't have private plugins, the build still works — `private-build/claude-plugins.sh` controls what gets installed.
+This builds the `base` target — system packages, Claude CLI, and official plugins. Ready to use out of the box.
 
-To build without private plugins (e.g., no SSH agent available):
+To include private plugins, build the `full` target directly and ensure your SSH keys are loaded in `ssh-add` (see [Private plugins](#private-plugins)):
+
 ```bash
-docker build --target base -t claude-docker-sandbox .
+docker build --ssh default --target full -t claude-docker-sandbox .
 ```
 
 ## Shell aliases
@@ -160,8 +161,8 @@ This requires your SSH keys to be loaded in `ssh-add` on the host:
 # Load your key (if not already loaded)
 ssh-add ~/.ssh/id_ed25519
 
-# Then build
-docker compose build
+# Then build the full target
+docker build --ssh default --target full -t claude-docker-sandbox .
 ```
 
 If you don't have keys in `ssh-add` and need to pull private repos during build, you'll need to add them first, or provide a specific key to the agent.
@@ -178,8 +179,8 @@ The Dockerfile uses two build stages:
 
 | Target | Contents | Used by |
 |--------|----------|---------|
-| `base` | System packages, Claude CLI, official plugins | CI workflow, `docker build --target base` |
-| `full` | Everything in `base` + private plugins via SSH | `docker compose build` (local) |
+| `base` | System packages, Claude CLI, official plugins | `docker compose build` (default) |
+| `full` | Everything in `base` + private plugins via SSH | `docker build --ssh default --target full` |
 
 To add private plugins, copy the example and add your plugin commands:
 
