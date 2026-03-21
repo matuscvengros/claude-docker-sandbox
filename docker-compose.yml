@@ -1,7 +1,11 @@
 services:
   claude-sandbox:
     image: claude-docker-sandbox
-    build: .
+    build:
+      context: .
+      target: full
+      ssh:
+        - default
     env_file: .env
     working_dir: /home/claude/project
     volumes:

@@ -1,11 +1,10 @@
-FROM node:22
+FROM node:22 AS base
 
 ARG DEBIAN_FRONTEND=noninteractive
 
 # --- ROOT OPERATIONS ---
 ## System packages
-RUN apt-get update
-RUN apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     # Build tools
     build-essential gcc g++ make cmake \
     # Version control & networking
@@ -15,10 +14,8 @@ RUN apt-get install -y --no-install-recommends \
     # CLI utilities
     ripgrep fd-find jq unzip \
     # System
-    sudo locales
-
-# Cleanup apt cache to reduce image size
-RUN rm -rf /var/lib/apt/lists/*
+    sudo locales \
+ && rm -rf /var/lib/apt/lists/*
 
 ## Locale
 RUN sed -i '/en_US.UTF-8/s/^# //' /etc/locale.gen
@@ -41,12 +38,15 @@ RUN mkdir -p /home/claude/.claude
 COPY claude/.claude.json /home/claude/.claude.json
 COPY claude/settings.json /home/claude/.claude/settings.json
 
-## Finalize root: fix ownership
-RUN chown -R claude:claude /home/claude
+## Shared credential setup script
+COPY scripts/setup-credentials.sh /tmp/setup-credentials.sh
 
 ## Entrypoint
+RUN chmod +x /entrypoint.sh /tmp/setup-credentials.sh
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+
+## Finalize root: fix ownership
+RUN chown -R claude:claude /home/claude
 
 # --- USER OPERATIONS ---
 USER claude
@@ -82,11 +82,16 @@ RUN claude plugin install superpowers@claude-plugins-official \
  && claude plugin install feature-dev@claude-plugins-official \
  && claude plugin install security-guidance@claude-plugins-official
 
-### Private plugins
-COPY --chown=claude:claude private-build/claude-plugins.sh /tmp/claude-plugins.sh
-RUN chmod +x /tmp/claude-plugins.sh
-RUN --mount=type=ssh sudo chmod 777 /run/buildkit/ssh_agent.* && bash /tmp/claude-plugins.sh
-RUN rm -f /tmp/claude-plugins.sh
+HEALTHCHECK --interval=30s --timeout=5s CMD claude --version || exit 1
 
 WORKDIR /home/claude/project
 ENTRYPOINT ["/entrypoint.sh"]
+
+# --- FULL: base + private plugins ---
+FROM base AS full
+
+### Private plugins
+COPY --chown=claude:claude private-build/claude-plugins.sh /tmp/claude-plugins.sh
+RUN chmod +x /tmp/claude-plugins.sh
+RUN --mount=type=ssh sudo chmod 666 /run/buildkit/ssh_agent.* && bash /tmp/claude-plugins.sh
+RUN rm -f /tmp/claude-plugins.sh

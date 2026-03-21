@@ -10,38 +10,51 @@ Docker container for running Claude Code autonomously. Based on `node:22` (Debia
 
 - Node.js 22 (LTS) + npm
 - Python 3 + pip + venv
-- Rust (rustup)
 - C/C++ (gcc, g++, make, cmake, build-essential)
 - Git, curl, ripgrep, fd, jq, openssh-client
 - Starship prompt (Bracketed Segments)
 
 ## Setup
 
-1. Copy `.env.example` to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
+### 1. Create your `.env` file
 
-2. Fill in your values:
-   ```bash
-   # Required — Claude OAuth credentials (base64-encoded)
-   # Claude Code doesn't support OAuth via env vars yet, so we inject the credentials file directly
-   # Generate with: base64 < ~/.claude/.credentials.json
-   CLAUDE_CREDENTIALS_B64=
+```bash
+cp .env.example .env
+```
 
-   # Git identity for commits made inside the container
-   GIT_USER_NAME=Your Name
-   GIT_USER_EMAIL=you@example.com
+### 2. Configure authentication
 
-   # Optional — SSH key for git push/pull over SSH (base64-encoded)
-   # Generate with: base64 -i ~/.ssh/id_ed25519
-   SSH_PRIVATE_KEY_B64=
-   ```
+Set `CLAUDE_CODE_OAUTH_TOKEN` in your `.env` file. Claude CLI picks this up automatically from the environment.
 
-3. Build:
-   ```bash
-   docker compose build
-   ```
+```bash
+CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-...
+```
+
+You can get a token by running `claude set-token` on your host machine, or from an existing session.
+
+### 3. Configure git identity and SSH (optional)
+
+```bash
+GIT_USER_NAME=Your Name
+GIT_USER_EMAIL=you@example.com
+
+# For git push/pull over SSH (base64-encoded private key)
+# Generate with: base64 -i ~/.ssh/id_ed25519
+SSH_PRIVATE_KEY_B64=
+```
+
+### 4. Build
+
+```bash
+docker compose build
+```
+
+The compose file is configured to build the `full` target (base + private plugins) and forward your SSH agent automatically. If you don't have private plugins, the build still works — `private-build/claude-plugins.sh` controls what gets installed.
+
+To build without private plugins (e.g., no SSH agent available):
+```bash
+docker build --target base -t claude-docker-sandbox .
+```
 
 ## Usage
 
@@ -75,10 +88,11 @@ claude --dangerously-skip-permissions
 
 ### Aliases
 
-Add to your shell profile for seamless usage:
+Add to your shell profile for seamless usage (adjust the path to where you cloned this repo):
 ```bash
-alias sandbox='docker compose -f ~/Documents/projects/claude-docker/docker-compose.yml run --rm claude-sandbox'
-alias cc='docker compose -f ~/Documents/projects/claude-docker/docker-compose.yml run --rm claude-sandbox -- --model opus'
+CLAUDE_DOCKER="$HOME/path/to/claude-docker-sandbox"
+alias sandbox="docker compose -f $CLAUDE_DOCKER/docker-compose.yml run --rm claude-sandbox"
+alias cc="docker compose -f $CLAUDE_DOCKER/docker-compose.yml run --rm claude-sandbox -- --model opus"
 ```
 
 Then from any project directory:
@@ -101,6 +115,17 @@ cc -p "fix the bug" # prompt mode, opus model
 
 Use both together: devcontainer for interactive work, standalone alias for fire-and-forget tasks on other projects.
 
+## Session persistence
+
+Containers are ephemeral by default — Claude Code state (conversation history, project memory) is lost when the container exits. To persist sessions across runs, uncomment the volume mount in `docker-compose.yml`:
+
+```yaml
+# Share host config folder for session persistence
+- ${HOME}/.claude.sandbox:/home/claude/.claude
+```
+
+This maps a host directory to the container's Claude config folder. Use a dedicated directory (e.g., `~/.claude.sandbox`) to keep it separate from your host's Claude config.
+
 ## Mount layout
 
 | Container path | Host source | Access |
@@ -108,11 +133,25 @@ Use both together: devcontainer for interactive work, standalone alias for fire-
 | `/home/claude/project` | Caller's `$PWD` (standalone) or opened folder (devcontainer) | Read/Write |
 | `/home/host` | `$HOME` | Read-only (secrets masked) |
 
+Sensitive host directories (`.ssh`, `.config`, `.docker`, `.orbstack`, `Library/Keychains`) are masked with empty tmpfs overlays to prevent container access.
+
 ## Environment variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `CLAUDE_CREDENTIALS_B64` | Yes | Base64-encoded Claude OAuth credentials (`base64 < ~/.claude/.credentials.json`) |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Yes | OAuth token — picked up automatically by Claude CLI |
+| `CLAUDE_SKIP_PERMISSIONS` | No | Set to `false` to enable Claude's permission system (default: `true`) |
 | `GIT_USER_NAME` | No | Git committer name |
 | `GIT_USER_EMAIL` | No | Git committer email |
 | `SSH_PRIVATE_KEY_B64` | No | Base64-encoded SSH private key (`base64 -i ~/.ssh/id_ed25519`) |
+
+## Private plugins
+
+The Dockerfile uses two build stages:
+
+| Target | Contents | Used by |
+|--------|----------|---------|
+| `base` | System packages, Claude CLI, official plugins | CI workflow |
+| `full` | Everything in `base` + private plugins via SSH | `docker compose build` (local) |
+
+See `private-build/claude-plugins.sh.example` for the template. Copy it to `private-build/claude-plugins.sh` and add your plugin commands. The compose files forward your SSH agent automatically.
