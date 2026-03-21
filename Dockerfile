@@ -40,10 +40,11 @@ COPY claude/settings.json /home/claude/.claude/settings.json
 
 ## Shared credential setup script
 COPY scripts/setup-credentials.sh /tmp/setup-credentials.sh
+RUN chmod +x /tmp/setup-credentials.sh
 
 ## Entrypoint
-RUN chmod +x /entrypoint.sh /tmp/setup-credentials.sh
 COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 ## Finalize root: fix ownership
 RUN chown -R claude:claude /home/claude
