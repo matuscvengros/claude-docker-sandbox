@@ -58,6 +58,9 @@ ENV PATH="/home/claude/.local/bin:${PATH}"
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
 ## Claude Code: plugins
+### QOL plugins
+RUN claude-context-window@latest install
+
 ### Official Anthropics plugins
 RUN claude plugin marketplace add anthropics/claude-plugins-official
 RUN claude plugin install superpowers@claude-plugins-official \
